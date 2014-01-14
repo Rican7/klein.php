@@ -383,6 +383,63 @@ class Klein
     }
 
     /**
+     * Check if a given route's defined method matches
+     * our requests method or not
+     *
+     * @param Route $route      The route to check for matching
+     * @param Request $request  The request to grab the HTTP method from
+     * @access protected
+     * @return bool
+     */
+    protected function isMethodMatch(Route $route, Request $request = null)
+    {
+        // Initialize our params that may have not been passed in
+        $request = $request ?: $this->request;
+
+        // Keep track of whether this specific request method was matched
+        $method_match = null;
+
+        // Cache some route details so we don't have to make a function call each time
+        $method = $route->getMethod();
+
+        // Was a method specified? If so, check it against the current request method
+        if (is_array($method)) {
+            foreach ($method as $test) {
+                if ($request->method($test)) {
+                    $method_match = true;
+                } elseif ($request->method('HEAD')
+                    && (strcasecmp($test, 'HEAD') === 0 || strcasecmp($test, 'GET') === 0)) {
+
+                    // Test for HEAD request (like GET)
+                    $method_match = true;
+                }
+            }
+
+            if (null === $method_match) {
+                $method_match = false;
+            }
+        } elseif (null !== $method && !$this->request->method($method)) {
+            $method_match = false;
+
+            // Test for HEAD request (like GET)
+            if ($request->method('HEAD')
+                && (strcasecmp($method, 'HEAD') === 0 || strcasecmp($method, 'GET') === 0 )) {
+
+                $method_match = true;
+            }
+        } elseif (null !== $method && $request->method($method)) {
+            $method_match = true;
+        }
+
+        // If our `$method_match` is still null, let's count it
+        if (null === $method_match) {
+            $method_match = true;
+        }
+
+        return (bool) $method_match;
+    }
+
+    /**
      * Compiles a route string to a regular expression
      *
      * @param string $route     The route string to compile
@@ -480,39 +537,7 @@ class Klein
             $count_match = $route->getCountMatch();
 
             // Keep track of whether this specific request method was matched
-            $method_match = null;
-
-            // Was a method specified? If so, check it against the current request method
-            if (is_array($method)) {
-                foreach ($method as $test) {
-                    if ($request->method($test)) {
-                        $method_match = true;
-                    } elseif ($request->method('HEAD')
-                          && (strcasecmp($test, 'HEAD') === 0 || strcasecmp($test, 'GET') === 0)) {
-
-                        // Test for HEAD request (like GET)
-                        $method_match = true;
-                    }
-                }
-
-                if (null === $method_match) {
-                    $method_match = false;
-                }
-            } elseif (null !== $method && !$this->request->method($method)) {
-                $method_match = false;
-
-                // Test for HEAD request (like GET)
-                if ($request->method('HEAD')
-                    && (strcasecmp($method, 'HEAD') === 0 || strcasecmp($method, 'GET') === 0 )) {
-
-                    $method_match = true;
-                }
-            } elseif (null !== $method && $request->method($method)) {
-                $method_match = true;
-            }
-
-            // If the method was matched or if it wasn't even passed (in the route callback)
-            $possible_match = (null === $method_match) || $method_match;
+            $method_match = $this->isMethodMatch($route);
 
             // ! is used to negate a match
             if (isset($path[0]) && $path[0] === '!') {
@@ -584,7 +609,7 @@ class Klein
             }
 
             if (isset($match) && $match ^ $negate) {
-                if ($possible_match) {
+                if ($method_match) {
                     if (!empty($params)) {
                         /**
                          * URL Decode the params according to RFC 3986
