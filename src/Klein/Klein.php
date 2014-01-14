@@ -383,6 +383,56 @@ class Klein
     }
 
     /**
+     * Compiles a route string to a regular expression
+     *
+     * @param string $route     The route string to compile
+     * @access protected
+     * @return void
+     */
+    protected function compileRoute($route)
+    {
+        // First escape all of the non-named param (non [block]s) for regex-chars
+        if (preg_match_all(static::ROUTE_ESCAPE_REGEX, $route, $escape_locations, PREG_SET_ORDER)) {
+            foreach ($escape_locations as $locations) {
+                $route = str_replace($locations[0], preg_quote($locations[0]), $route);
+            }
+        }
+
+        // Now let's actually compile the path
+        if (preg_match_all(static::ROUTE_COMPILE_REGEX, $route, $matches, PREG_SET_ORDER)) {
+            $match_types = array(
+                'i'  => '[0-9]++',
+                'a'  => '[0-9A-Za-z]++',
+                'h'  => '[0-9A-Fa-f]++',
+                's'  => '[0-9A-Za-z-_]++',
+                '*'  => '.+?',
+                '**' => '.++',
+                ''   => '[^/]+?'
+            );
+
+            foreach ($matches as $match) {
+                list($block, $pre, $inner_block, $type, $param, $optional) = $match;
+
+                if (isset($match_types[$type])) {
+                    $type = $match_types[$type];
+                }
+                // Older versions of PCRE require the 'P' in (?P<named>)
+                $pattern = '(?:'
+                         . ($pre !== '' ? $pre : null)
+                         . '('
+                         . ($param !== '' ? "?P<$param>" : null)
+                         . $type
+                         . '))'
+                         . ($optional !== '' ? '?' : null);
+
+                $route = str_replace($block, $pattern, $route);
+            }
+        }
+
+        return "`^$route$`";
+    }
+
+    /**
      * Match our request and our routes
      *
      * This simply runs the matching logic without having any effects
@@ -588,56 +638,6 @@ class Klein
             'methods_matched' => $methods_matched,
             'buffered_content' => $buffered_content,
         );
-    }
-
-    /**
-     * Compiles a route string to a regular expression
-     *
-     * @param string $route     The route string to compile
-     * @access protected
-     * @return void
-     */
-    protected function compileRoute($route)
-    {
-        // First escape all of the non-named param (non [block]s) for regex-chars
-        if (preg_match_all(static::ROUTE_ESCAPE_REGEX, $route, $escape_locations, PREG_SET_ORDER)) {
-            foreach ($escape_locations as $locations) {
-                $route = str_replace($locations[0], preg_quote($locations[0]), $route);
-            }
-        }
-
-        // Now let's actually compile the path
-        if (preg_match_all(static::ROUTE_COMPILE_REGEX, $route, $matches, PREG_SET_ORDER)) {
-            $match_types = array(
-                'i'  => '[0-9]++',
-                'a'  => '[0-9A-Za-z]++',
-                'h'  => '[0-9A-Fa-f]++',
-                's'  => '[0-9A-Za-z-_]++',
-                '*'  => '.+?',
-                '**' => '.++',
-                ''   => '[^/]+?'
-            );
-
-            foreach ($matches as $match) {
-                list($block, $pre, $inner_block, $type, $param, $optional) = $match;
-
-                if (isset($match_types[$type])) {
-                    $type = $match_types[$type];
-                }
-                // Older versions of PCRE require the 'P' in (?P<named>)
-                $pattern = '(?:'
-                         . ($pre !== '' ? $pre : null)
-                         . '('
-                         . ($param !== '' ? "?P<$param>" : null)
-                         . $type
-                         . '))'
-                         . ($optional !== '' ? '?' : null);
-
-                $route = str_replace($block, $pattern, $route);
-            }
-        }
-
-        return "`^$route$`";
     }
 
     /**
