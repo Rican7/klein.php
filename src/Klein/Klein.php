@@ -498,9 +498,10 @@ class Klein
      * Compiling and matching regular expressions is relatively
      * expensive, so we try and match by a substring first
      *
-     * @param Route $route      The route to build our regex from
-     * @param Request $request  The request to grab the URI from
-     * @param int $start_index  The numeric index of the path string to start our search
+     * @param Route $route              The route to build our regex from
+     * @param Request $request          The request to grab the URI from
+     * @param int $start_index          The numeric index of the path string to start our search
+     * @throws UnexpectedValueException If we're positive that we don't have a match
      * @access protected
      * @return string
      */
