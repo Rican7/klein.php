@@ -13,6 +13,7 @@ namespace Klein;
 
 use \Exception;
 use \OutOfBoundsException;
+use \UnexpectedValueException;
 
 use \Klein\DataCollection\RouteCollection;
 use \Klein\Exceptions\LockedResponseException;
@@ -492,6 +493,79 @@ class Klein
     }
 
     /**
+     * Build a regex string for matching our route to our request
+     *
+     * Compiling and matching regular expressions is relatively
+     * expensive, so we try and match by a substring first
+     *
+     * @param Route $route      The route to build our regex from
+     * @param Request $request  The request to grab the URI from
+     * @param int $start_index  The numeric index of the path string to start our search
+     * @access protected
+     * @return string
+     */
+    protected function buildRegexForMatching(Route $route, Request $request = null, $start_index = 0)
+    {
+        // Initialize our params that may have not been passed in
+        $request = $request ?: $this->request;
+
+        // Get our path from our route
+        $path = $route->getPath();
+
+        // Get our uri from our request
+        $uri = $request->pathname();
+
+        // Check if we have access to APC user caching
+        $apc = function_exists('apc_fetch');
+
+        // Set some initial values
+        $expression = null;
+        $regex = false;
+        $i = $start_index;
+        $j = 0;
+        $n = isset($path[$i]) ? $path[$i] : null;
+
+        // Find the longest non-regex substring and match it against the URI
+        while (true) {
+            if (!isset($path[$i])) {
+                break;
+
+            } elseif (false === $regex) {
+                $c = $n;
+                $regex = $c === '[' || $c === '(' || $c === '.';
+
+                if (false === $regex && false !== isset($path[$i + 1])) {
+                    $n = $path[$i + 1];
+                    $regex = $n === '?' || $n === '+' || $n === '*' || $n === '{';
+                }
+
+                if (false === $regex && $c !== '/' && (!isset($uri[$j]) || $c !== $uri[$j])) {
+                    // Definitely not a match
+                    throw new UnexpectedValueException('Not a match');
+                }
+
+                $j++;
+            }
+
+            $expression .= $path[$i++];
+        }
+
+        // Check if there's a cached regex string
+        if (false !== $apc) {
+            $regex = apc_fetch("route:$expression");
+
+            if (false === $regex) {
+                $regex = $this->compileRoute($expression);
+                apc_store("route:$expression", $regex);
+            }
+        } else {
+            $regex = $this->compileRoute($expression);
+        }
+
+        return $regex;
+    }
+
+    /**
      * Match our request and our routes
      *
      * This simply runs the matching logic without having any effects
@@ -522,7 +596,6 @@ class Klein
         $matched = $routes->cloneEmpty(); // Get an empty clone of the routes collection, as it may have been injected
         $methods_matched = array();
         $params = array();
-        $apc = function_exists('apc_fetch');
 
         ob_start();
 
@@ -569,42 +642,12 @@ class Klein
                 $match = preg_match('`' . substr($path, $i + 1) . '`', $uri, $params);
 
             } else {
-                // Compiling and matching regular expressions is relatively
-                // expensive, so try and match by a substring first
-
-                $expression = null;
-                $regex = false;
-                $j = 0;
-                $n = isset($path[$i]) ? $path[$i] : null;
-
-                // Find the longest non-regex substring and match it against the URI
-                while (true) {
-                    if (!isset($path[$i])) {
-                        break;
-                    } elseif (false === $regex) {
-                        $c = $n;
-                        $regex = $c === '[' || $c === '(' || $c === '.';
-                        if (false === $regex && false !== isset($path[$i+1])) {
-                            $n = $path[$i + 1];
-                            $regex = $n === '?' || $n === '+' || $n === '*' || $n === '{';
-                        }
-                        if (false === $regex && $c !== '/' && (!isset($uri[$j]) || $c !== $uri[$j])) {
-                            continue 2;
-                        }
-                        $j++;
-                    }
-                    $expression .= $path[$i++];
-                }
-
-                // Check if there's a cached regex string
-                if (false !== $apc) {
-                    $regex = apc_fetch("route:$expression");
-                    if (false === $regex) {
-                        $regex = $this->compileRoute($expression);
-                        apc_store("route:$expression", $regex);
-                    }
-                } else {
-                    $regex = $this->compileRoute($expression);
+                try {
+                    // Build our regex for matching
+                    $regex = $this->buildRegexForMatching($route, $request, $i);
+                } catch (UnexpectedValueException $e) {
+                    // If we didn't match, just skip this
+                    continue;
                 }
 
                 $match = preg_match($regex, $uri, $params);
