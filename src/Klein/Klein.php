@@ -383,126 +383,6 @@ class Klein
     }
 
     /**
-     * Dispatch the request to the approriate route(s)
-     *
-     * Dispatch with optionally injected dependencies
-     * This DI allows for easy testing, object mocking, or class extension
-     *
-     * @param Request $request              The request object to give to each callback
-     * @param AbstractResponse $response    The response object to give to each callback
-     * @param boolean $send_response        Whether or not to "send" the response after the last route has been matched
-     * @param int $capture                  Specify a DISPATCH_* constant to change the output capturing behavior
-     * @access public
-     * @return void|string
-     */
-    public function dispatch(
-        Request $request = null,
-        AbstractResponse $response = null,
-        $send_response = true,
-        $capture = self::DISPATCH_NO_CAPTURE
-    ) {
-        // Set/Initialize our objects to be sent in each callback
-        $this->request = $request ?: Request::createFromGlobals();
-        $this->response = $response ?: new Response();
-
-        // Bind our objects to our service
-        $this->service->bind($this->request, $this->response);
-
-        // Prepare any named routes
-        $this->routes->prepareNamed();
-
-        // Match our routes to our request
-        $match_values = $this->match();
-
-        // Grab some info from our matching
-        $matched = $match_values['matched'];
-        $methods_matched = $match_values['methods_matched'];
-        $buffered_content = $match_values['buffered_content'];
-
-        // Handle our 404/405 conditions
-        try {
-            if ($matched->isEmpty() && count($methods_matched) > 0) {
-                // Add our methods to our allow header
-                $this->response->header('Allow', implode(', ', $methods_matched));
-
-                if (!$this->request->method('OPTIONS')) {
-                    throw HttpException::createFromCode(405);
-                }
-            } elseif ($matched->isEmpty()) {
-                throw HttpException::createFromCode(404);
-            }
-        } catch (HttpExceptionInterface $e) {
-            // Grab our original response lock state
-            $locked = $this->response->isLocked();
-
-            // Call our http error handlers
-            $this->httpError($e, $matched, $methods_matched);
-
-            // Make sure we return our response to its original lock state
-            if (!$locked) {
-                $this->response->unlock();
-            }
-        }
-
-        try {
-            if ($this->response->chunked) {
-                $this->response->chunk();
-
-            } else {
-                // Output capturing behavior
-                switch($capture) {
-                    case self::DISPATCH_CAPTURE_AND_RETURN:
-                        $buffed_content = null;
-                        if (ob_get_level()) {
-                            $buffed_content = ob_get_clean();
-                        }
-                        return $buffed_content;
-                        break;
-                    case self::DISPATCH_CAPTURE_AND_REPLACE:
-                        if (ob_get_level()) {
-                            $this->response->body(ob_get_clean());
-                        }
-                        break;
-                    case self::DISPATCH_CAPTURE_AND_PREPEND:
-                        if (ob_get_level()) {
-                            $this->response->prepend(ob_get_clean());
-                        }
-                        break;
-                    case self::DISPATCH_CAPTURE_AND_APPEND:
-                        if (ob_get_level()) {
-                            $this->response->append(ob_get_clean());
-                        }
-                        break;
-                    case self::DISPATCH_NO_CAPTURE:
-                    default:
-                        if (ob_get_level()) {
-                            ob_end_flush();
-                        }
-                }
-            }
-
-            // Test for HEAD request (like GET)
-            if ($this->request->method('HEAD')) {
-                // HEAD requests shouldn't return a body
-                $this->response->body('');
-
-                if (ob_get_level()) {
-                    ob_clean();
-                }
-            }
-        } catch (LockedResponseException $e) {
-            // Do nothing, since this is an automated behavior
-        }
-
-        // Run our after dispatch callbacks
-        $this->callAfterDispatchCallbacks();
-
-        if ($send_response && !$this->response->isSent()) {
-            $this->response->send();
-        }
-    }
-
-    /**
      * Match our request and our routes
      *
      * This simply runs the matching logic without having any effects
@@ -758,6 +638,126 @@ class Klein
         }
 
         return "`^$route$`";
+    }
+
+    /**
+     * Dispatch the request to the approriate route(s)
+     *
+     * Dispatch with optionally injected dependencies
+     * This DI allows for easy testing, object mocking, or class extension
+     *
+     * @param Request $request              The request object to give to each callback
+     * @param AbstractResponse $response    The response object to give to each callback
+     * @param boolean $send_response        Whether or not to "send" the response after the last route has been matched
+     * @param int $capture                  Specify a DISPATCH_* constant to change the output capturing behavior
+     * @access public
+     * @return void|string
+     */
+    public function dispatch(
+        Request $request = null,
+        AbstractResponse $response = null,
+        $send_response = true,
+        $capture = self::DISPATCH_NO_CAPTURE
+    ) {
+        // Set/Initialize our objects to be sent in each callback
+        $this->request = $request ?: Request::createFromGlobals();
+        $this->response = $response ?: new Response();
+
+        // Bind our objects to our service
+        $this->service->bind($this->request, $this->response);
+
+        // Prepare any named routes
+        $this->routes->prepareNamed();
+
+        // Match our routes to our request
+        $match_values = $this->match();
+
+        // Grab some info from our matching
+        $matched = $match_values['matched'];
+        $methods_matched = $match_values['methods_matched'];
+        $buffered_content = $match_values['buffered_content'];
+
+        // Handle our 404/405 conditions
+        try {
+            if ($matched->isEmpty() && count($methods_matched) > 0) {
+                // Add our methods to our allow header
+                $this->response->header('Allow', implode(', ', $methods_matched));
+
+                if (!$this->request->method('OPTIONS')) {
+                    throw HttpException::createFromCode(405);
+                }
+            } elseif ($matched->isEmpty()) {
+                throw HttpException::createFromCode(404);
+            }
+        } catch (HttpExceptionInterface $e) {
+            // Grab our original response lock state
+            $locked = $this->response->isLocked();
+
+            // Call our http error handlers
+            $this->httpError($e, $matched, $methods_matched);
+
+            // Make sure we return our response to its original lock state
+            if (!$locked) {
+                $this->response->unlock();
+            }
+        }
+
+        try {
+            if ($this->response->chunked) {
+                $this->response->chunk();
+
+            } else {
+                // Output capturing behavior
+                switch($capture) {
+                    case self::DISPATCH_CAPTURE_AND_RETURN:
+                        $buffed_content = null;
+                        if (ob_get_level()) {
+                            $buffed_content = ob_get_clean();
+                        }
+                        return $buffed_content;
+                        break;
+                    case self::DISPATCH_CAPTURE_AND_REPLACE:
+                        if (ob_get_level()) {
+                            $this->response->body(ob_get_clean());
+                        }
+                        break;
+                    case self::DISPATCH_CAPTURE_AND_PREPEND:
+                        if (ob_get_level()) {
+                            $this->response->prepend(ob_get_clean());
+                        }
+                        break;
+                    case self::DISPATCH_CAPTURE_AND_APPEND:
+                        if (ob_get_level()) {
+                            $this->response->append(ob_get_clean());
+                        }
+                        break;
+                    case self::DISPATCH_NO_CAPTURE:
+                    default:
+                        if (ob_get_level()) {
+                            ob_end_flush();
+                        }
+                }
+            }
+
+            // Test for HEAD request (like GET)
+            if ($this->request->method('HEAD')) {
+                // HEAD requests shouldn't return a body
+                $this->response->body('');
+
+                if (ob_get_level()) {
+                    ob_clean();
+                }
+            }
+        } catch (LockedResponseException $e) {
+            // Do nothing, since this is an automated behavior
+        }
+
+        // Run our after dispatch callbacks
+        $this->callAfterDispatchCallbacks();
+
+        if ($send_response && !$this->response->isSent()) {
+            $this->response->send();
+        }
     }
 
     /**
