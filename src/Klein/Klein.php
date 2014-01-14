@@ -414,7 +414,6 @@ class Klein
 
         // Grab some data from the request
         $uri = $this->request->pathname();
-        $req_method = $this->request->method();
 
         // Set up some variables for matching
         $skip_num = 0;
@@ -443,9 +442,9 @@ class Klein
             // Was a method specified? If so, check it against the current request method
             if (is_array($method)) {
                 foreach ($method as $test) {
-                    if (strcasecmp($req_method, $test) === 0) {
+                    if ($this->request->method($test)) {
                         $method_match = true;
-                    } elseif (strcasecmp($req_method, 'HEAD') === 0
+                    } elseif ($this->request->method('HEAD')
                           && (strcasecmp($test, 'HEAD') === 0 || strcasecmp($test, 'GET') === 0)) {
 
                         // Test for HEAD request (like GET)
@@ -456,16 +455,16 @@ class Klein
                 if (null === $method_match) {
                     $method_match = false;
                 }
-            } elseif (null !== $method && strcasecmp($req_method, $method) !== 0) {
+            } elseif (null !== $method && !$this->request->method($method)) {
                 $method_match = false;
 
                 // Test for HEAD request (like GET)
-                if (strcasecmp($req_method, 'HEAD') === 0
+                if ($this->request->method('HEAD')
                     && (strcasecmp($method, 'HEAD') === 0 || strcasecmp($method, 'GET') === 0 )) {
 
                     $method_match = true;
                 }
-            } elseif (null !== $method && strcasecmp($req_method, $method) === 0) {
+            } elseif (null !== $method && $this->request->method($method)) {
                 $method_match = true;
             }
 
@@ -593,7 +592,7 @@ class Klein
                 // Add our methods to our allow header
                 $this->response->header('Allow', implode(', ', $methods_matched));
 
-                if (strcasecmp($req_method, 'OPTIONS') !== 0) {
+                if (!$this->request->method('OPTIONS')) {
                     throw HttpException::createFromCode(405);
                 }
             } elseif ($matched->isEmpty()) {
@@ -650,7 +649,7 @@ class Klein
             }
 
             // Test for HEAD request (like GET)
-            if (strcasecmp($req_method, 'HEAD') === 0) {
+            if ($this->request->method('HEAD')) {
                 // HEAD requests shouldn't return a body
                 $this->response->body('');
 
