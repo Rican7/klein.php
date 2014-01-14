@@ -101,6 +101,24 @@ class Klein
      */
 
     /**
+     * The match types used for routing and their
+     * corresponding regular expression representation
+     *
+     * @static
+     * @var array
+     * @access protected
+     */
+    protected static $route_match_types = array(
+        'i'  => '[0-9]++',
+        'a'  => '[0-9A-Za-z]++',
+        'h'  => '[0-9A-Fa-f]++',
+        's'  => '[0-9A-Za-z-_]++',
+        '*'  => '.+?',
+        '**' => '.++',
+        ''   => '[^/]+?'
+    );
+
+    /**
      * Collection of the routes to match on dispatch
      *
      * @var RouteCollection
@@ -460,21 +478,11 @@ class Klein
 
         // Now let's actually compile the path
         if (preg_match_all(static::ROUTE_COMPILE_REGEX, $route, $matches, PREG_SET_ORDER)) {
-            $match_types = array(
-                'i'  => '[0-9]++',
-                'a'  => '[0-9A-Za-z]++',
-                'h'  => '[0-9A-Fa-f]++',
-                's'  => '[0-9A-Za-z-_]++',
-                '*'  => '.+?',
-                '**' => '.++',
-                ''   => '[^/]+?'
-            );
-
             foreach ($matches as $match) {
                 list($block, $pre, $inner_block, $type, $param, $optional) = $match;
 
-                if (isset($match_types[$type])) {
-                    $type = $match_types[$type];
+                if (isset(static::$route_match_types[$type])) {
+                    $type = static::$route_match_types[$type];
                 }
                 // Older versions of PCRE require the 'P' in (?P<named>)
                 $pattern = '(?:'
