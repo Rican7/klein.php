@@ -411,20 +411,133 @@ class Klein
         // Prepare any named routes
         $this->routes->prepareNamed();
 
+        // Match our routes to our request
+        $match_values = $this->match();
+
+        // Grab some info from our matching
+        $matched = $match_values['matched'];
+        $methods_matched = $match_values['methods_matched'];
+        $buffered_content = $match_values['buffered_content'];
+
+        // Handle our 404/405 conditions
+        try {
+            if ($matched->isEmpty() && count($methods_matched) > 0) {
+                // Add our methods to our allow header
+                $this->response->header('Allow', implode(', ', $methods_matched));
+
+                if (!$this->request->method('OPTIONS')) {
+                    throw HttpException::createFromCode(405);
+                }
+            } elseif ($matched->isEmpty()) {
+                throw HttpException::createFromCode(404);
+            }
+        } catch (HttpExceptionInterface $e) {
+            // Grab our original response lock state
+            $locked = $this->response->isLocked();
+
+            // Call our http error handlers
+            $this->httpError($e, $matched, $methods_matched);
+
+            // Make sure we return our response to its original lock state
+            if (!$locked) {
+                $this->response->unlock();
+            }
+        }
+
+        try {
+            if ($this->response->chunked) {
+                $this->response->chunk();
+
+            } else {
+                // Output capturing behavior
+                switch($capture) {
+                    case self::DISPATCH_CAPTURE_AND_RETURN:
+                        $buffed_content = null;
+                        if (ob_get_level()) {
+                            $buffed_content = ob_get_clean();
+                        }
+                        return $buffed_content;
+                        break;
+                    case self::DISPATCH_CAPTURE_AND_REPLACE:
+                        if (ob_get_level()) {
+                            $this->response->body(ob_get_clean());
+                        }
+                        break;
+                    case self::DISPATCH_CAPTURE_AND_PREPEND:
+                        if (ob_get_level()) {
+                            $this->response->prepend(ob_get_clean());
+                        }
+                        break;
+                    case self::DISPATCH_CAPTURE_AND_APPEND:
+                        if (ob_get_level()) {
+                            $this->response->append(ob_get_clean());
+                        }
+                        break;
+                    case self::DISPATCH_NO_CAPTURE:
+                    default:
+                        if (ob_get_level()) {
+                            ob_end_flush();
+                        }
+                }
+            }
+
+            // Test for HEAD request (like GET)
+            if ($this->request->method('HEAD')) {
+                // HEAD requests shouldn't return a body
+                $this->response->body('');
+
+                if (ob_get_level()) {
+                    ob_clean();
+                }
+            }
+        } catch (LockedResponseException $e) {
+            // Do nothing, since this is an automated behavior
+        }
+
+        // Run our after dispatch callbacks
+        $this->callAfterDispatchCallbacks();
+
+        if ($send_response && !$this->response->isSent()) {
+            $this->response->send();
+        }
+    }
+
+    /**
+     * Match our request and our routes
+     *
+     * This simply runs the matching logic without having any effects
+     * on the HTTP response
+     *
+     * Returns an associative array containing some information about the matching process
+     * The keys are as follows:
+     * - 'matched': A RouteCollection of matched routes
+     * - 'methods_matched': An array of HTTP methods that were matched to the request
+     * - 'buffered_content': The contents buffered from our output buffer
+     *
+     * @param Request $request              The request object to give to each callback
+     * @param RouteCollection $routes       Collection object responsible for containing all route instances
+     * @access protected
+     * @return array
+     */
+    protected function match(Request $request = null, RouteCollection $routes = null)
+    {
+        // Initialize our params that may have not been passed in
+        $request = $request ?: $this->request;
+        $routes = $routes ?: $this->routes;
 
         // Grab some data from the request
-        $uri = $this->request->pathname();
+        $uri = $request->pathname();
 
         // Set up some variables for matching
         $skip_num = 0;
-        $matched = $this->routes->cloneEmpty(); // Get a clone of the routes collection, as it may have been injected
+        $matched = $routes->cloneEmpty(); // Get an empty clone of the routes collection, as it may have been injected
         $methods_matched = array();
         $params = array();
         $apc = function_exists('apc_fetch');
 
         ob_start();
 
-        foreach ($this->routes as $route) {
+        foreach ($routes as $route) {
             // Are we skipping any matches?
             if ($skip_num > 0) {
                 $skip_num--;
@@ -442,9 +555,9 @@ class Klein
             // Was a method specified? If so, check it against the current request method
             if (is_array($method)) {
                 foreach ($method as $test) {
-                    if ($this->request->method($test)) {
+                    if ($request->method($test)) {
                         $method_match = true;
-                    } elseif ($this->request->method('HEAD')
+                    } elseif ($request->method('HEAD')
                           && (strcasecmp($test, 'HEAD') === 0 || strcasecmp($test, 'GET') === 0)) {
 
                         // Test for HEAD request (like GET)
@@ -459,12 +572,12 @@ class Klein
                 $method_match = false;
 
                 // Test for HEAD request (like GET)
-                if ($this->request->method('HEAD')
+                if ($request->method('HEAD')
                     && (strcasecmp($method, 'HEAD') === 0 || strcasecmp($method, 'GET') === 0 )) {
 
                     $method_match = true;
                 }
-            } elseif (null !== $method && $this->request->method($method)) {
+            } elseif (null !== $method && $request->method($method)) {
                 $method_match = true;
             }
 
@@ -552,7 +665,7 @@ class Klein
                          */
                         $params = array_map('rawurldecode', $params);
 
-                        $this->request->paramsNamed()->merge($params);
+                        $request->paramsNamed()->merge($params);
                     }
 
                     // Handle our response callback
@@ -586,87 +699,15 @@ class Klein
             }
         }
 
-        // Handle our 404/405 conditions
-        try {
-            if ($matched->isEmpty() && count($methods_matched) > 0) {
-                // Add our methods to our allow header
-                $this->response->header('Allow', implode(', ', $methods_matched));
-
-                if (!$this->request->method('OPTIONS')) {
-                    throw HttpException::createFromCode(405);
-                }
-            } elseif ($matched->isEmpty()) {
-                throw HttpException::createFromCode(404);
-            }
-        } catch (HttpExceptionInterface $e) {
-            // Grab our original response lock state
-            $locked = $this->response->isLocked();
-
-            // Call our http error handlers
-            $this->httpError($e, $matched, $methods_matched);
-
-            // Make sure we return our response to its original lock state
-            if (!$locked) {
-                $this->response->unlock();
-            }
+        if (ob_get_level()) {
+            $buffered_content = ob_get_contents();
         }
 
-        try {
-            if ($this->response->chunked) {
-                $this->response->chunk();
-
-            } else {
-                // Output capturing behavior
-                switch($capture) {
-                    case self::DISPATCH_CAPTURE_AND_RETURN:
-                        $buffed_content = null;
-                        if (ob_get_level()) {
-                            $buffed_content = ob_get_clean();
-                        }
-                        return $buffed_content;
-                        break;
-                    case self::DISPATCH_CAPTURE_AND_REPLACE:
-                        if (ob_get_level()) {
-                            $this->response->body(ob_get_clean());
-                        }
-                        break;
-                    case self::DISPATCH_CAPTURE_AND_PREPEND:
-                        if (ob_get_level()) {
-                            $this->response->prepend(ob_get_clean());
-                        }
-                        break;
-                    case self::DISPATCH_CAPTURE_AND_APPEND:
-                        if (ob_get_level()) {
-                            $this->response->append(ob_get_clean());
-                        }
-                        break;
-                    case self::DISPATCH_NO_CAPTURE:
-                    default:
-                        if (ob_get_level()) {
-                            ob_end_flush();
-                        }
-                }
-            }
-
-            // Test for HEAD request (like GET)
-            if ($this->request->method('HEAD')) {
-                // HEAD requests shouldn't return a body
-                $this->response->body('');
-
-                if (ob_get_level()) {
-                    ob_clean();
-                }
-            }
-        } catch (LockedResponseException $e) {
-            // Do nothing, since this is an automated behavior
-        }
-
-        // Run our after dispatch callbacks
-        $this->callAfterDispatchCallbacks();
-
-        if ($send_response && !$this->response->isSent()) {
-            $this->response->send();
-        }
+        return array(
+            'matched' => $matched,
+            'methods_matched' => $methods_matched,
+            'buffered_content' => $buffered_content,
+        );
     }
 
     /**
