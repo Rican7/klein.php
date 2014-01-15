@@ -438,7 +438,7 @@ class Klein
                 if (null === $method_match) {
                     $method_match = false;
                 }
-            } elseif (!$this->request->method($method)) {
+            } elseif (!$request->method($method)) {
                 $method_match = false;
 
                 // Test for HEAD request (like GET)
