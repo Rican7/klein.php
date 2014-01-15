@@ -708,6 +708,55 @@ class Klein
     }
 
     /**
+     * Handle the 404 and 405 conditions in our dispatching process
+     *
+     * Separating this logic out of the dispatch method allows for
+     * the overriding of how 404's and 405's are handled or checked
+     * in the dispatch process
+     *
+     * @param RouteCollection $matched      Collection object responsible for containing all matched routes
+     * @param array $methods_matched        An array containing all of the matched methods
+     * @param Request $request              The request used for matching and dispatching
+     * @param AbstractResponse $response    The response to modify per our conditions
+     * @access protected
+     * @return void
+     */
+    protected function handle404And405Conditions(
+        RouteCollection $matched,
+        array $methods_matched,
+        Request $request = null,
+        AbstractResponse $response = null
+    ) {
+        // Initialize our params that may have not been passed in
+        $request = $request ?: $this->request;
+        $response = $response ?: $this->response;
+
+        try {
+            if ($matched->isEmpty() && count($methods_matched) > 0) {
+                // Add our methods to our allow header
+                $response->header('Allow', implode(', ', $methods_matched));
+
+                if (!$request->method('OPTIONS')) {
+                    throw HttpException::createFromCode(405);
+                }
+            } elseif ($matched->isEmpty()) {
+                throw HttpException::createFromCode(404);
+            }
+        } catch (HttpExceptionInterface $e) {
+            // Grab our original response lock state
+            $locked = $response->isLocked();
+
+            // Call our http error handlers
+            $this->httpError($e, $matched, $methods_matched);
+
+            // Make sure we return our response to its original lock state
+            if (!$locked) {
+                $response->unlock();
+            }
+        }
+    }
+
+    /**
      * Dispatch the request to the approriate route(s)
      *
      * Dispatch with optionally injected dependencies
@@ -745,30 +794,9 @@ class Klein
         $buffered_content = $match_values['buffered_content'];
 
         // Handle our 404/405 conditions
-        try {
-            if ($matched->isEmpty() && count($methods_matched) > 0) {
-                // Add our methods to our allow header
-                $this->response->header('Allow', implode(', ', $methods_matched));
+        $this->handle404And405Conditions($matched, $methods_matched);
 
-                if (!$this->request->method('OPTIONS')) {
-                    throw HttpException::createFromCode(405);
-                }
-            } elseif ($matched->isEmpty()) {
-                throw HttpException::createFromCode(404);
-            }
-        } catch (HttpExceptionInterface $e) {
-            // Grab our original response lock state
-            $locked = $this->response->isLocked();
-
-            // Call our http error handlers
-            $this->httpError($e, $matched, $methods_matched);
-
-            // Make sure we return our response to its original lock state
-            if (!$locked) {
-                $this->response->unlock();
-            }
-        }
-
+        // Attempt to modify the response body based on our buffered content
         try {
             if ($this->response->chunked) {
                 $this->response->chunk();
