@@ -423,32 +423,20 @@ class Klein
 
         // Was a method specified? If so, check it against the current request method
         if (null !== $method) {
-            if (is_array($method)) {
-                foreach ($method as $test) {
-                    if ($request->method($test)) {
-                        $method_match = true;
-                    } elseif ($request->method('HEAD')
-                        && (strcasecmp($test, 'HEAD') === 0 || strcasecmp($test, 'GET') === 0)) {
+            foreach ((array) $method as $test) {
+                if ($request->method($test)) {
+                    $method_match = true;
 
-                        // Test for HEAD request (like GET)
-                        $method_match = true;
-                    }
-                }
+                } elseif ($request->method('HEAD')
+                    && (strcasecmp($test, 'HEAD') === 0 || strcasecmp($test, 'GET') === 0)) {
 
-                if (null === $method_match) {
-                    $method_match = false;
-                }
-            } elseif (!$request->method($method)) {
-                $method_match = false;
-
-                // Test for HEAD request (like GET)
-                if ($request->method('HEAD')
-                    && (strcasecmp($method, 'HEAD') === 0 || strcasecmp($method, 'GET') === 0 )) {
-
+                    // Test for HEAD request (like GET)
                     $method_match = true;
                 }
-            } elseif ($request->method($method)) {
-                $method_match = true;
+            }
+
+            if (null === $method_match) {
+                $method_match = false;
             }
         }
 
