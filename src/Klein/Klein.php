@@ -341,7 +341,7 @@ class Klein
      * @access public
      * @return Route
      */
-    public function respond($method, $path = '*', $callback = null)
+    public function respond($method, $path = null, $callback = null)
     {
         // Get the arguments in a very loose format
         extract(
@@ -1170,7 +1170,7 @@ class Klein
      * @access public
      * @return Route
      */
-    public function options($path = '*', $callback = null)
+    public function options($path = null, $callback = null)
     {
         // Options the arguments in a very loose format
         extract(
@@ -1190,7 +1190,7 @@ class Klein
      * @access public
      * @return Route
      */
-    public function head($path = '*', $callback = null)
+    public function head($path = null, $callback = null)
     {
         // Get the arguments in a very loose format
         extract(
@@ -1210,7 +1210,7 @@ class Klein
      * @access public
      * @return Route
      */
-    public function get($path = '*', $callback = null)
+    public function get($path = null, $callback = null)
     {
         // Get the arguments in a very loose format
         extract(
@@ -1230,7 +1230,7 @@ class Klein
      * @access public
      * @return Route
      */
-    public function post($path = '*', $callback = null)
+    public function post($path = null, $callback = null)
     {
         // Get the arguments in a very loose format
         extract(
@@ -1250,7 +1250,7 @@ class Klein
      * @access public
      * @return Route
      */
-    public function put($path = '*', $callback = null)
+    public function put($path = null, $callback = null)
     {
         // Get the arguments in a very loose format
         extract(
@@ -1270,7 +1270,7 @@ class Klein
      * @access public
      * @return Route
      */
-    public function delete($path = '*', $callback = null)
+    public function delete($path = null, $callback = null)
     {
         // Get the arguments in a very loose format
         extract(
@@ -1293,7 +1293,7 @@ class Klein
      * @access public
      * @return Route
      */
-    public function patch($path = '*', $callback = null)
+    public function patch($path = null, $callback = null)
     {
         // Get the arguments in a very loose format
         extract(
