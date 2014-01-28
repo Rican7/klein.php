@@ -1317,6 +1317,37 @@ class RoutingTest extends AbstractKleinTest
         $this->assertSame(405, $this->klein_app->response()->code());
     }
 
+    public function test404And405Routes()
+    {
+        $this->klein_app->respond(
+            'GET',
+            '/test',
+            function () {
+                echo 'fail';
+            }
+        );
+
+        $this->klein_app->respond(
+            404,
+            function () {
+                echo 404;
+            }
+        );
+        $this->klein_app->respond(
+            405,
+            function () {
+                echo 405;
+            }
+        );
+
+        $this->klein_app->dispatch(
+            MockRequestFactory::create('/test', 'DELETE')
+        );
+
+        $this->expectOutputString('405');
+        $this->assertSame(405, $this->klein_app->response()->code());
+    }
+
     public function testOptionsDefaultRequest()
     {
         $this->klein_app->respond(
