@@ -11,12 +11,9 @@
 
 namespace Klein\Tests;
 
-
-use \PHPUnit_Framework_TestCase;
-
-use \Klein\Klein;
-
-use \Klein\Tests\Mocks\HeadersNoOp;
+use PHPUnit_Framework_TestCase;
+use Klein\Klein;
+use Klein\Tests\Mocks\HeadersNoOp;
 
 /**
  * AbstractKleinTest

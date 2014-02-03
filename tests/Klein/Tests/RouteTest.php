@@ -11,9 +11,8 @@
 
 namespace Klein\Tests;
 
-
-use \Klein\Klein;
-use \Klein\Route;
+use Klein\Klein;
+use Klein\Route;
 
 /**
  * RouteTest

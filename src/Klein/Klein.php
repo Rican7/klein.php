@@ -11,16 +11,15 @@
 
 namespace Klein;
 
-use \Exception;
-use \OutOfBoundsException;
-use \UnexpectedValueException;
-
-use \Klein\DataCollection\RouteCollection;
-use \Klein\Exceptions\LockedResponseException;
-use \Klein\Exceptions\UnhandledException;
-use \Klein\Exceptions\DispatchHaltedException;
-use \Klein\Exceptions\HttpException;
-use \Klein\Exceptions\HttpExceptionInterface;
+use Exception;
+use Klein\DataCollection\RouteCollection;
+use Klein\Exceptions\DispatchHaltedException;
+use Klein\Exceptions\HttpException;
+use Klein\Exceptions\HttpExceptionInterface;
+use Klein\Exceptions\LockedResponseException;
+use Klein\Exceptions\UnhandledException;
+use OutOfBoundsException;
+use UnexpectedValueException;
 
 /**
  * Klein
