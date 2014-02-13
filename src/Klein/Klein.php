@@ -590,7 +590,7 @@ class Klein
         // Set up some variables for matching
         $skip_num = 0;
         $matched = $routes->cloneEmpty(); // Get an empty clone of the routes collection, as it may have been injected
-        $methods_matched = array();
+        $match_result = new MatchResult($matched);
         $params = array();
 
         ob_start();
@@ -623,8 +623,8 @@ class Klein
             if ($path === '*') {
                 $match = true;
 
-            } elseif (($path === '404' && $matched->isEmpty() && count($methods_matched) <= 0)
-                   || ($path === '405' && $matched->isEmpty() && count($methods_matched) > 0)) {
+            } elseif (($path === '404' && $matched->isEmpty() && count($match_result->getMethodsMatched()) <= 0)
+                   || ($path === '405' && $matched->isEmpty() && count($match_result->getMethodsMatched()) > 0)) {
 
                 // Easily handle 40x's
                 // TODO: Possibly remove in future, here for backwards compatibility
@@ -666,7 +666,7 @@ class Klein
 
                     // Handle our response callback
                     try {
-                        $this->handleRouteCallback($route, $matched, $methods_matched);
+                        $this->handleRouteCallback($route, $matched, $match_result->getMethodsMatched());
 
                     } catch (DispatchHaltedException $e) {
                         switch ($e->getCode()) {
@@ -689,21 +689,15 @@ class Klein
                 }
 
                 // Keep track of possibly matched methods
-                $methods_matched = array_merge($methods_matched, (array) $method);
-                $methods_matched = array_filter($methods_matched);
-                $methods_matched = array_unique($methods_matched);
+                $match_result->mergeMethodsMatched((array) $method);
             }
         }
 
         if (ob_get_level()) {
-            $buffered_content = ob_get_contents();
+            $match_result->setBufferedContent(ob_get_contents());
         }
 
-        return array(
-            'matched' => $matched,
-            'methods_matched' => $methods_matched,
-            'buffered_content' => $buffered_content,
-        );
+        return $match_result;
     }
 
     /**
@@ -785,12 +779,12 @@ class Klein
         $this->routes->prepareNamed();
 
         // Match our routes to our request
-        $match_values = $this->match();
+        $match_result = $this->match();
 
         // Grab some info from our matching
-        $matched = $match_values['matched'];
-        $methods_matched = $match_values['methods_matched'];
-        $buffered_content = $match_values['buffered_content'];
+        $matched = $match_result->getMatched();
+        $methods_matched = $match_result->getMethodsMatched();
+        $buffered_content = $match_result->getBufferedContent();
 
         // Handle our 404/405 conditions
         $this->handle404And405Conditions($matched, $methods_matched);
