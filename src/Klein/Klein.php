@@ -589,8 +589,9 @@ class Klein
 
         // Set up some variables for matching
         $skip_num = 0;
-        $matched = $routes->cloneEmpty(); // Get an empty clone of the routes collection, as it may have been injected
-        $match_result = new MatchResult($matched);
+        $match_result = new MatchResult(
+            $routes->cloneEmpty() // Get an empty clone of the routes collection, as it may have been injected
+        );
         $params = array();
 
         ob_start();
@@ -623,8 +624,9 @@ class Klein
             if ($path === '*') {
                 $match = true;
 
-            } elseif (($path === '404' && $matched->isEmpty() && count($match_result->getMethodsMatched()) <= 0)
-                   || ($path === '405' && $matched->isEmpty() && count($match_result->getMethodsMatched()) > 0)) {
+            } elseif ($match_result->getMatched()->isEmpty() && (
+                ($path === '404' && count($match_result->getMethodsMatched()) <= 0)
+                || ($path === '405' && count($match_result->getMethodsMatched()) > 0))) {
 
                 // Easily handle 40x's
                 // TODO: Possibly remove in future, here for backwards compatibility
@@ -666,7 +668,7 @@ class Klein
 
                     // Handle our response callback
                     try {
-                        $this->handleRouteCallback($route, $matched, $match_result->getMethodsMatched());
+                        $this->handleRouteCallback($route, $match_result);
 
                     } catch (DispatchHaltedException $e) {
                         switch ($e->getCode()) {
@@ -684,7 +686,7 @@ class Klein
                     }
 
                     if ($path !== '*') {
-                        $count_match && $matched->add($route);
+                        $count_match && $match_result->getMatched()->add($route);
                     }
                 }
 
@@ -707,16 +709,14 @@ class Klein
      * the overriding of how 404's and 405's are handled or checked
      * in the dispatch process
      *
-     * @param RouteCollection $matched      Collection object responsible for containing all matched routes
-     * @param array $methods_matched        An array containing all of the matched methods
+     * @param MatchResult $match_result     A value object containing the results of our matching algorithm
      * @param Request $request              The request used for matching and dispatching
      * @param AbstractResponse $response    The response to modify per our conditions
      * @access protected
      * @return void
      */
     protected function handle404And405Conditions(
-        RouteCollection $matched,
-        array $methods_matched,
+        MatchResult $match_result,
         Request $request = null,
         AbstractResponse $response = null
     ) {
@@ -725,14 +725,14 @@ class Klein
         $response = $response ?: $this->response;
 
         try {
-            if ($matched->isEmpty() && count($methods_matched) > 0) {
+            if ($match_result->getMatched()->isEmpty() && count($match_result->getMethodsMatched()) > 0) {
                 // Add our methods to our allow header
-                $response->header('Allow', implode(', ', $methods_matched));
+                $response->header('Allow', implode(', ', $match_result->getMethodsMatched()));
 
                 if (!$request->method('OPTIONS')) {
                     throw HttpException::createFromCode(405);
                 }
-            } elseif ($matched->isEmpty()) {
+            } elseif ($match_result->getMatched()->isEmpty()) {
                 throw HttpException::createFromCode(404);
             }
         } catch (HttpExceptionInterface $e) {
@@ -740,7 +740,7 @@ class Klein
             $locked = $response->isLocked();
 
             // Call our http error handlers
-            $this->httpError($e, $matched, $methods_matched);
+            $this->httpError($e, $match_result);
 
             // Make sure we return our response to its original lock state
             if (!$locked) {
@@ -781,13 +781,8 @@ class Klein
         // Match our routes to our request
         $match_result = $this->match();
 
-        // Grab some info from our matching
-        $matched = $match_result->getMatched();
-        $methods_matched = $match_result->getMethodsMatched();
-        $buffered_content = $match_result->getBufferedContent();
-
         // Handle our 404/405 conditions
-        $this->handle404And405Conditions($matched, $methods_matched);
+        $this->handle404And405Conditions($match_result);
 
         // Attempt to modify the response body based on our buffered content
         try {
@@ -911,12 +906,11 @@ class Klein
      * to keep the "dispatch()" method DRY
      *
      * @param Route $route
-     * @param RouteCollection $matched
-     * @param int $methods_matched
+     * @param MatchResult $match_result
      * @access protected
      * @return void
      */
-    protected function handleRouteCallback(Route $route, RouteCollection $matched, $methods_matched)
+    protected function handleRouteCallback(Route $route, MatchResult $match_result)
     {
         // Handle the callback
         try {
@@ -927,8 +921,8 @@ class Klein
                 $this->service,
                 $this->app,
                 $this, // Pass the Klein instance
-                $matched,
-                $methods_matched
+                $match_result->getMatched(),
+                $match_result->getMethodsMatched()
             );
 
             if ($returned instanceof AbstractResponse) {
@@ -945,7 +939,7 @@ class Klein
             throw $e;
         } catch (HttpExceptionInterface $e) {
             // Call our http error handlers
-            $this->httpError($e, $matched, $methods_matched);
+            $this->httpError($e, $match_result);
 
             throw new DispatchHaltedException();
         } catch (Exception $e) {
@@ -1023,12 +1017,11 @@ class Klein
      * Handles an HTTP error exception through our HTTP error callbacks
      *
      * @param HttpExceptionInterface $http_exception    The exception that occurred
-     * @param RouteCollection $matched                  The collection of routes that were matched in dispatch
-     * @param array $methods_matched                    The HTTP methods that were matched in dispatch
+     * @param MatchResult $match_result                 The results of our matching algorithm
      * @access protected
      * @return void
      */
-    protected function httpError(HttpExceptionInterface $http_exception, RouteCollection $matched, $methods_matched)
+    protected function httpError(HttpExceptionInterface $http_exception, MatchResult $match_result)
     {
         if (!$this->response->isLocked()) {
             $this->response->code($http_exception->getCode());
@@ -1037,14 +1030,13 @@ class Klein
         if (count($this->httpErrorCallbacks) > 0) {
             foreach (array_reverse($this->httpErrorCallbacks) as $callback) {
                 if ($callback instanceof Route) {
-                    $this->handleRouteCallback($callback, $matched, $methods_matched);
+                    $this->handleRouteCallback($callback, $match_result);
                 } elseif (is_callable($callback)) {
                     if (is_string($callback)) {
                         $callback(
                             $http_exception->getCode(),
                             $this,
-                            $matched,
-                            $methods_matched,
+                            $match_result,
                             $http_exception
                         );
                     } else {
@@ -1052,8 +1044,7 @@ class Klein
                             $callback,
                             $http_exception->getCode(),
                             $this,
-                            $matched,
-                            $methods_matched,
+                            $match_result,
                             $http_exception
                         );
                     }
