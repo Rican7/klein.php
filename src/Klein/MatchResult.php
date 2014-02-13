@@ -138,10 +138,12 @@ class MatchResult
      */
     public function mergeMethodsMatched(array $methods_matched)
     {
-        // Merge the array with our current matched methods
-        $merged = array_merge($this->methods_matched, $methods_matched);
+        if (!empty($methods_matched)) {
+            // Merge the array with our current matched methods
+            $merged = array_merge($this->methods_matched, $methods_matched);
 
-        $this->setMethodsMatched($merged);
+            $this->setMethodsMatched($merged);
+        }
 
         return $this;
     }
