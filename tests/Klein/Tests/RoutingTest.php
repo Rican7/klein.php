@@ -1301,8 +1301,8 @@ class RoutingTest extends AbstractKleinTest
             }
         );
         $this->klein_app->onHttpError(
-            function ($code, $klein, $matched, $methods, $exception) use (&$resultArray) {
-                $resultArray = $methods;
+            function ($code, $klein, $match_result, $exception) use (&$resultArray) {
+                $resultArray = $match_result->getMethodsMatched();
             }
         );
 

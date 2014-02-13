@@ -18,6 +18,7 @@ use Klein\Exceptions\DispatchHaltedException;
 use Klein\Exceptions\HttpException;
 use Klein\Exceptions\HttpExceptionInterface;
 use Klein\Klein;
+use Klein\MatchResult;
 use Klein\Request;
 use Klein\Response;
 use Klein\Route;
@@ -259,19 +260,17 @@ class KleinTest extends AbstractKleinTest
         $expected_arguments = array(
             'code'            => null,
             'klein'           => null,
-            'matched'         => null,
-            'methods_matched' => null,
+            'match_result'    => null,
             'exception'       => null,
         );
 
         $this->klein_app->onHttpError(
-            function ($code, $klein, $matched, $methods_matched, $exception) use (&$num_of_args, &$expected_arguments) {
+            function ($code, $klein, $match_result, $exception) use (&$num_of_args, &$expected_arguments) {
                 // Keep track of our arguments
                 $num_of_args = func_num_args();
                 $expected_arguments['code'] = $code;
                 $expected_arguments['klein'] = $klein;
-                $expected_arguments['matched'] = $matched;
-                $expected_arguments['methods_matched'] = $methods_matched;
+                $expected_arguments['match_result'] = $match_result;
                 $expected_arguments['exception'] = $exception;
 
                 $klein->response()->body($code .' error');
@@ -289,8 +288,7 @@ class KleinTest extends AbstractKleinTest
 
         $this->assertTrue(is_int($expected_arguments['code']));
         $this->assertTrue($expected_arguments['klein'] instanceof Klein);
-        $this->assertTrue($expected_arguments['matched'] instanceof RouteCollection);
-        $this->assertTrue(is_array($expected_arguments['methods_matched']));
+        $this->assertTrue($expected_arguments['match_result'] instanceof MatchResult);
         $this->assertTrue($expected_arguments['exception'] instanceof HttpExceptionInterface);
 
         $this->assertSame($expected_arguments['klein'], $this->klein_app);
@@ -301,7 +299,7 @@ class KleinTest extends AbstractKleinTest
         $this->klein_app->onHttpError('test_num_args_wrapper');
 
         $this->assertSame(
-            '5',
+            '4',
             $this->dispatchAndReturnOutput()
         );
     }
