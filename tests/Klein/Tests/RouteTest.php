@@ -59,8 +59,7 @@ class RouteTest extends AbstractKleinTest
         // Empty constructor
         $route = new Route($test_callable);
 
-        $this->assertNotNull($route->getPath());
-        $this->assertInternalType('string', $route->getPath());
+        $this->assertEmpty($route->getPath());
 
         // Set in constructor
         $route = new Route($test_callable, $test_path);
@@ -158,6 +157,52 @@ class RouteTest extends AbstractKleinTest
             call_user_func_array($test_callable, $test_arguments),
             call_user_func_array($route, $test_arguments)
         );
+    }
+
+    public function testIsPathNull()
+    {
+        // Test data
+        $test_callable = $this->getTestCallable();
+        $test_path = '/this-is-a-path';
+        $test_null_path = null;
+
+        // No path given
+        $route = new Route($test_callable);
+
+        $this->assertTrue($route->isPathNull());
+
+        // Non-null path passed
+        $route = new Route($test_callable, $test_path);
+
+        $this->assertFalse($route->isPathNull());
+
+        // Null path passed
+        $route = new Route($test_callable, $test_null_path);
+
+        $this->assertTrue($route->isPathNull());
+    }
+
+    public function testIsPathNegated()
+    {
+        // Test data
+        $test_callable = $this->getTestCallable();
+        $test_path = '/doge';
+        $test_negated_path = '!/doge';
+
+        // No path given
+        $route = new Route($test_callable);
+
+        $this->assertFalse($route->isPathNegated());
+
+        // Non-negated path passed
+        $route = new Route($test_callable, $test_path);
+
+        $this->assertFalse($route->isPathNegated());
+
+        // Negated path passed
+        $route = new Route($test_callable, $test_negated_path);
+
+        $this->assertTrue($route->isPathNegated());
     }
 
     /**
