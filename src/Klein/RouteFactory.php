@@ -78,7 +78,7 @@ class RouteFactory extends AbstractRouteFactory
     protected function preprocessPathString($path)
     {
         // If the path is null, make sure to give it our match-all value
-        $path = (null === $path) ? static::NULL_PATH_VALUE : (string) $path;
+        $path = ($this->pathIsNull($path)) ? null : (string) $path;
 
         // If a custom regular expression (or negated custom regex)
         if ($this->namespace && $path[0] === '@' || ($path[0] === '!' && $path[1] === '@')) {
@@ -107,7 +107,7 @@ class RouteFactory extends AbstractRouteFactory
         } elseif ($this->namespace && $this->pathIsNull($path)) {
             // Empty route with namespace is a match-all
             $path = '@^' . $this->namespace . '(/|$)';
-        } else {
+        } elseif (null !== $this->namespace) {
             // Just prepend our namespace
             $path = $this->namespace . $path;
         }

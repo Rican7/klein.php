@@ -72,7 +72,12 @@ abstract class AbstractRouteFactory
      */
     public function setNamespace($namespace)
     {
-        $this->namespace = (string) $namespace;
+        // If not null, let's cast to a string
+        if (null !== $namespace) {
+            $namespace = (string) $namespace;
+        }
+
+        $this->namespace = $namespace;
 
         return $this;
     }

@@ -159,7 +159,12 @@ class Route
      */
     public function setPath($path)
     {
-        $this->path = (string) $path;
+        // If not null, let's cast to a string
+        if (null !== $path) {
+            $path = (string) $path;
+        }
+
+        $this->path = $path;
 
         return $this;
     }
