@@ -66,7 +66,7 @@ class MatchResult
      * @access public
      */
     public function __construct(
-        RouteCollection $matched = null,
+        RouteCollection $matched,
         array $methods_matched = array(),
         $buffered_content = null
     ) {
