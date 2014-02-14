@@ -170,6 +170,28 @@ class Route
     }
 
     /**
+     * Check if the path is null
+     *
+     * @access public
+     * @return boolean
+     */
+    public function isPathNull()
+    {
+        return (null === $this->path);
+    }
+
+    /**
+     * Check if the path is negated
+     *
+     * @access public
+     * @return boolean
+     */
+    public function isPathNegated()
+    {
+        return (isset($this->path[0]) && $this->path[0] === '!');
+    }
+
+    /**
      * Get the method
      *
      * @access public
