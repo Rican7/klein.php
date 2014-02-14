@@ -567,16 +567,10 @@ class Klein
      * This simply runs the matching logic without having any effects
      * on the HTTP response
      *
-     * Returns an associative array containing some information about the matching process
-     * The keys are as follows:
-     * - 'matched': A RouteCollection of matched routes
-     * - 'methods_matched': An array of HTTP methods that were matched to the request
-     * - 'buffered_content': The contents buffered from our output buffer
-     *
      * @param Request $request              The request object to give to each callback
      * @param RouteCollection $routes       Collection object responsible for containing all route instances
      * @access protected
-     * @return array
+     * @return MatchResult
      */
     protected function match(Request $request = null, RouteCollection $routes = null)
     {
@@ -611,17 +605,15 @@ class Klein
             // Keep track of whether this specific request method was matched
             $method_match = $this->isMethodMatch($route);
 
-            // ! is used to negate a match
-            if (isset($path[0]) && $path[0] === '!') {
-                $negate = true;
+            // Check for a negated path
+            if ($negate = $route->isPathNegated()) {
                 $i = 1;
             } else {
-                $negate = false;
                 $i = 0;
             }
 
             // Check for a wildcard (match all)
-            if ($path === '*') {
+            if ($route->isPathNull()) {
                 $match = true;
 
             } elseif ($match_result->getMatched()->isEmpty() && (
@@ -685,7 +677,7 @@ class Klein
                         }
                     }
 
-                    if ($path !== '*') {
+                    if (!$route->isPathNull()) {
                         $count_match && $match_result->getMatched()->add($route);
                     }
                 }
