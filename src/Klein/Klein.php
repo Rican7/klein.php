@@ -20,6 +20,7 @@ use Klein\Exceptions\LockedResponseException;
 use Klein\Exceptions\RegularExpressionCompilationException;
 use Klein\Exceptions\RoutePathCompilationException;
 use Klein\Exceptions\UnhandledException;
+use Klein\Matcher\Matcher;
 use OutOfBoundsException;
 use SplQueue;
 use SplStack;
@@ -445,55 +446,16 @@ class Klein
                 $path = $route->getPath();
                 $count_match = $route->getCountMatch();
 
-                // Keep track of whether this specific request method was matched
-                $method_match = null;
+                $matcher = new Matcher();
 
-                // Was a method specified? If so, check it against the current request method
-                if (is_array($method)) {
-                    foreach ($method as $test) {
-                        if ($this->request->method($test)) {
-                            $method_match = true;
-                        } elseif ($this->request->method('HEAD')
-                              && (strcasecmp($test, 'HEAD') === 0 || strcasecmp($test, 'GET') === 0)) {
-
-                            // Test for HEAD request (like GET)
-                            $method_match = true;
-                        }
-                    }
-
-                    if (null === $method_match) {
-                        $method_match = false;
-                    }
-                } elseif (null !== $method && !$this->request->method($method)) {
-                    $method_match = false;
-
-                    // Test for HEAD request (like GET)
-                    if ($this->request->method('HEAD')
-                        && (strcasecmp($method, 'HEAD') === 0 || strcasecmp($method, 'GET') === 0 )) {
-
-                        $method_match = true;
-                    }
-                } elseif (null !== $method && $this->request->method($method)) {
-                    $method_match = true;
-                }
+                $match_result = $matcher->match($this->request, $route);
+                $params = $match_result->getParams();
+                $method_match = $match_result->isMethodMatch();
 
                 // If the method was matched or if it wasn't even passed (in the route callback)
                 $possible_match = (null === $method_match) || $method_match;
 
-                // ! is used to negate a match
-                if (isset($path[0]) && $path[0] === '!') {
-                    $negate = true;
-                    $i = 1;
-                } else {
-                    $negate = false;
-                    $i = 0;
-                }
-
-                // Check for a wildcard (match all)
-                if ($path === '*') {
-                    $match = true;
-
-                } elseif (($path === '404' && $matched->isEmpty() && count($methods_matched) <= 0)
+                if (($path === '404' && $matched->isEmpty() && count($methods_matched) <= 0)
                        || ($path === '405' && $matched->isEmpty() && count($methods_matched) > 0)) {
 
                     // Warn user of deprecation
@@ -505,59 +467,9 @@ class Klein
                     $this->onHttpError($route);
 
                     continue;
-
-                } elseif (isset($path[$i]) && $path[$i] === '@') {
-                    // @ is used to specify custom regex
-
-                    $match = preg_match('`' . substr($path, $i + 1) . '`', $uri, $params);
-
-                } else {
-                    // Compiling and matching regular expressions is relatively
-                    // expensive, so try and match by a substring first
-
-                    $expression = null;
-                    $regex = false;
-                    $j = 0;
-                    $n = isset($path[$i]) ? $path[$i] : null;
-
-                    // Find the longest non-regex substring and match it against the URI
-                    while (true) {
-                        if (!isset($path[$i])) {
-                            break;
-                        } elseif (false === $regex) {
-                            $c = $n;
-                            $regex = $c === '[' || $c === '(' || $c === '.';
-                            if (false === $regex && false !== isset($path[$i+1])) {
-                                $n = $path[$i + 1];
-                                $regex = $n === '?' || $n === '+' || $n === '*' || $n === '{';
-                            }
-                            if (false === $regex && $c !== '/' && (!isset($uri[$j]) || $c !== $uri[$j])) {
-                                continue 2;
-                            }
-                            $j++;
-                        }
-                        $expression .= $path[$i++];
-                    }
-
-                    try {
-                        // Check if there's a cached regex string
-                        if (false !== $apc) {
-                            $regex = apc_fetch("route:$expression");
-                            if (false === $regex) {
-                                $regex = $this->compileRoute($expression);
-                                apc_store("route:$expression", $regex);
-                            }
-                        } else {
-                            $regex = $this->compileRoute($expression);
-                        }
-                    } catch (RegularExpressionCompilationException $e) {
-                        throw RoutePathCompilationException::createFromRoute($route, $e);
-                    }
-
-                    $match = preg_match($regex, $uri, $params);
                 }
 
-                if (isset($match) && $match ^ $negate) {
+                if ($match_result->isPathMatch()) {
                     if ($possible_match) {
                         if (!empty($params)) {
                             /**
