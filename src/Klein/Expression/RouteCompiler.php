@@ -150,7 +150,7 @@ class RouteCompiler implements RouteCompilerInterface
 
         try {
             // Check if our regular expression is valid
-            static::validateRegularExpression($regex);
+            self::validateRegularExpression($regex);
         } catch (RegularExpressionCompilationException $e) {
             throw RoutePathCompilationException::createFromRoute($route, $e);
         }
