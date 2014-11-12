@@ -399,15 +399,11 @@ class Klein
         $this->routes->prepareNamed();
 
 
-        // Grab some data from the request
-        $uri = $this->request->pathname();
-
         // Set up some variables for matching
         $skip_num = 0;
         $matched = $this->routes->cloneEmpty(); // Get a clone of the routes collection, as it may have been injected
         $methods_matched = array();
         $params = array();
-        $apc = function_exists('apc_fetch');
 
         ob_start();
 

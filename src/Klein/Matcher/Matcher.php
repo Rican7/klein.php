@@ -112,7 +112,9 @@ class Matcher
 
         if (null !== $this->expression_cache) {
             $expression = $this->expression_cache->fetch($route->getPath());
-        } else {
+        }
+
+        if (null === $expression) {
             $expression = $this->route_compiler->compile($route);
         }
 
@@ -132,7 +134,6 @@ class Matcher
      */
     public function match(Request $request, Route $route)
     {
-        $match = false;
         $negate = false;
 
         $params = array();
@@ -166,7 +167,7 @@ class Matcher
         return new MatchResult(
             $match ^ $negate,
             $this->isMethodMatch($request, $route),
-            $params
+            (array) $params
         );
     }
 }
