@@ -831,7 +831,7 @@ class RoutingTest extends AbstractKleinTest
             }
         );
         $this->klein_app->respond(
-            '404',
+            404,
             function () {
                 echo '404 Code';
             }
@@ -1176,10 +1176,11 @@ class RoutingTest extends AbstractKleinTest
     {
         $ext_namespaces = $this->loadExternalRoutes();
 
-        $this->klein_app->respond(
-            404,
-            function ($request, $response) {
-                echo "404";
+        $this->klein_app->onHttpError(
+            function ($code) {
+                if (404 === $code) {
+                    echo '404';
+                }
             }
         );
 
@@ -1205,10 +1206,11 @@ class RoutingTest extends AbstractKleinTest
     {
         $ext_namespaces = $this->loadExternalRoutes();
 
-        $this->klein_app->respond(
-            404,
-            function ($request, $response) {
-                echo "404";
+        $this->klein_app->onHttpError(
+            function ($code) {
+                if (404 === $code) {
+                    echo '404';
+                }
             }
         );
 
