@@ -429,18 +429,15 @@ class Klein
                 // If the method was matched or if it wasn't even passed (in the route callback)
                 $possible_match = (null === $method_match) || $method_match;
 
-                if (($path === '404' && $matched->isEmpty() && count($methods_matched) <= 0)
-                       || ($path === '405' && $matched->isEmpty() && count($methods_matched) > 0)) {
-
+                if ((int) $path === 404 || (int) $path === 405) {
                     // Warn user of deprecation
                     trigger_error(
                         'Use of 404/405 "routes" is deprecated. Use $klein->onHttpError() instead.',
                         E_USER_DEPRECATED
                     );
-                    // TODO: Possibly remove in future, here for backwards compatibility
-                    $this->onHttpError($route);
 
-                    continue;
+                    // TODO: Remove in future version, here for backwards compatibility
+                    $this->onHttpError($route);
                 }
 
                 if ($match_result->isPathMatch()) {
