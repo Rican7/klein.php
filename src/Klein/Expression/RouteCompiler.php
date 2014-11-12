@@ -12,6 +12,7 @@
 namespace Klein\Expression;
 
 use Klein\Exceptions\RegularExpressionCompilationException;
+use Klein\Exceptions\RoutePathCompilationException;
 use Klein\Klein;
 use Klein\Route;
 
@@ -147,8 +148,12 @@ class RouteCompiler implements RouteCompilerInterface
 
         $regex = "`^$compiled$`";
 
-        // Check if our regular expression is valid
-        $this->validateRegularExpression($regex);
+        try {
+            // Check if our regular expression is valid
+            static::validateRegularExpression($regex);
+        } catch (RegularExpressionCompilationException $e) {
+            throw RoutePathCompilationException::createFromRoute($route, $e);
+        }
 
         return $regex;
     }
