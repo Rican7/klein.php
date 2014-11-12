@@ -102,28 +102,6 @@ class Klein
      */
 
     /**
-     * The types to detect in a defined match "block"
-     *
-     * Examples of these blocks are as follows:
-     *
-     * - integer:       '[i:id]'
-     * - alphanumeric:  '[a:username]'
-     * - hexadecimal:   '[h:color]'
-     * - slug:          '[s:article]'
-     *
-     * @type array
-     */
-    protected $match_types = array(
-        'i'  => '[0-9]++',
-        'a'  => '[0-9A-Za-z]++',
-        'h'  => '[0-9A-Fa-f]++',
-        's'  => '[0-9A-Za-z-_]++',
-        '*'  => '.+?',
-        '**' => '.++',
-        ''   => '[^/]+?'
-    );
-
-    /**
      * Collection of the routes to match on dispatch
      *
      * @type RouteCollection
@@ -602,96 +580,6 @@ class Klein
         if ($send_response && !$this->response->isSent()) {
             $this->response->send();
         }
-    }
-
-    /**
-     * Compiles a route string to a regular expression
-     *
-     * @param string $route     The route string to compile
-     * @return string
-     */
-    protected function compileRoute($route)
-    {
-        // First escape all of the non-named param (non [block]s) for regex-chars
-        $route = preg_replace_callback(
-            static::ROUTE_ESCAPE_REGEX,
-            function ($match) {
-                return preg_quote($match[0]);
-            },
-            $route
-        );
-
-        // Get a local reference of the match types to pass into our closure
-        $match_types = $this->match_types;
-
-        // Now let's actually compile the path
-        $route = preg_replace_callback(
-            static::ROUTE_COMPILE_REGEX,
-            function ($match) use ($match_types) {
-                list(, $pre, $type, $param, $optional) = $match;
-
-                if (isset($match_types[$type])) {
-                    $type = $match_types[$type];
-                }
-
-                // Older versions of PCRE require the 'P' in (?P<named>)
-                $pattern = '(?:'
-                         . ($pre !== '' ? $pre : null)
-                         . '('
-                         . ($param !== '' ? "?P<$param>" : null)
-                         . $type
-                         . '))'
-                         . ($optional !== '' ? '?' : null);
-
-                return $pattern;
-            },
-            $route
-        );
-
-        $regex = "`^$route$`";
-
-        // Check if our regular expression is valid
-        $this->validateRegularExpression($regex);
-
-        return $regex;
-    }
-
-    /**
-     * Validate a regular expression
-     *
-     * This simply checks if the regular expression is able to be compiled
-     * and converts any warnings or notices in the compilation to an exception
-     *
-     * @param string $regex                          The regular expression to validate
-     * @throws RegularExpressionCompilationException If the expression can't be compiled
-     * @return boolean
-     */
-    private function validateRegularExpression($regex)
-    {
-        $error_string = null;
-
-        // Set an error handler temporarily
-        set_error_handler(
-            function ($errno, $errstr) use (&$error_string) {
-                $error_string = $errstr;
-            },
-            E_NOTICE | E_WARNING
-        );
-
-        if (false === preg_match($regex, null) || !empty($error_string)) {
-            // Remove our temporary error handler
-            restore_error_handler();
-
-            throw new RegularExpressionCompilationException(
-                $error_string,
-                preg_last_error()
-            );
-        }
-
-        // Remove our temporary error handler
-        restore_error_handler();
-
-        return true;
     }
 
     /**
