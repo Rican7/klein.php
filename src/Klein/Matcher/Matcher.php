@@ -80,12 +80,11 @@ class Matcher
 
         } else {
             foreach ((array) $method as $test) {
-                if ($request->method($test)) {
-                    $method_match = true;
-                    break;
-
-                } elseif ($request->method('HEAD')
-                    && (strcasecmp($test, 'HEAD') === 0 || strcasecmp($test, 'GET') === 0)) {
+                if ($request->method($test) ||
+                    ($request->method('HEAD')
+                        && (strcasecmp($test, 'HEAD') === 0 || strcasecmp($test, 'GET') === 0)
+                    )
+                ) {
                     // Test for HEAD request (like GET)
 
                     $method_match = true;
