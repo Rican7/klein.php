@@ -424,10 +424,6 @@ class Klein
 
                 $match_result = $matcher->match($this->request, $route);
                 $params = $match_result->getParams();
-                $method_match = $match_result->isMethodMatch();
-
-                // If the method was matched or if it wasn't even passed (in the route callback)
-                $possible_match = (null === $method_match) || $method_match;
 
                 if ((int) $path === 404 || (int) $path === 405) {
                     // Warn user of deprecation
@@ -441,7 +437,7 @@ class Klein
                 }
 
                 if ($match_result->isPathMatch()) {
-                    if ($possible_match) {
+                    if ($match_result->isMethodMatch()) {
                         if (!empty($params)) {
                             /**
                              * URL Decode the params according to RFC 3986
@@ -474,6 +470,7 @@ class Klein
                             }
                         }
 
+                        // TODO: Should check if the route path is a "wildcard" in the future
                         if ($path !== '*') {
                             $count_match && $matched->add($route);
                         }
