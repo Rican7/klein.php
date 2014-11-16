@@ -398,6 +398,8 @@ class Klein
         // Prepare any named routes
         $this->routes->prepareNamed();
 
+        // TODO: Allow matchers to be injected? Probably in the constructor...
+        $matcher = new Matcher();
 
         // Set up some variables for matching
         $skip_num = 0;
@@ -419,8 +421,6 @@ class Klein
                 $method = $route->getMethod();
                 $path = $route->getPath();
                 $count_match = $route->getCountMatch();
-
-                $matcher = new Matcher();
 
                 $match_result = $matcher->match($this->request, $route);
                 $params = $match_result->getParams();
