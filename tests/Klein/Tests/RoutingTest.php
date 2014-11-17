@@ -825,6 +825,10 @@ class RoutingTest extends AbstractKleinTest
     {
         $this->expectOutputString('onetwo404 Code');
 
+        // Ignore our deprecation error
+        $old_error_val = error_reporting();
+        error_reporting(E_ALL ^ E_USER_DEPRECATED);
+
         $this->klein_app->respond(
             function () {
                 echo 'one';
@@ -841,10 +845,6 @@ class RoutingTest extends AbstractKleinTest
                 echo 'two';
             }
         );
-
-        // Ignore our deprecation error
-        $old_error_val = error_reporting();
-        error_reporting(E_ALL ^ E_USER_DEPRECATED);
 
         $this->klein_app->dispatch(
             MockRequestFactory::create('/notroute')
@@ -1292,16 +1292,17 @@ class RoutingTest extends AbstractKleinTest
                 echo 'fail';
             }
         );
+
+        // Ignore our deprecation error
+        $old_error_val = error_reporting();
+        error_reporting(E_ALL ^ E_USER_DEPRECATED);
+
         $this->klein_app->respond(
             405,
             function ($a, $b, $c, $d, $e, $f, $methods) use (&$result_array) {
                 $result_array = $methods;
             }
         );
-
-        // Ignore our deprecation error
-        $old_error_val = error_reporting();
-        error_reporting(E_ALL ^ E_USER_DEPRECATED);
 
         $this->klein_app->dispatch(
             MockRequestFactory::create('/sure', 'DELETE')
