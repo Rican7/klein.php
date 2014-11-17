@@ -321,6 +321,17 @@ class Klein
 
         $route = $this->route_factory->build($callback, $path, $method);
 
+        if ((int) $path === 404 || (int) $path === 405) {
+            // Warn user of deprecation
+            trigger_error(
+                'Use of 404/405 "routes" is deprecated. Use $klein->onHttpError() instead.',
+                E_USER_DEPRECATED
+            );
+
+            // TODO: Remove in future version, here for backwards compatibility
+            $this->onHttpError($route);
+        }
+
         $this->routes->add($route);
 
         return $route;
@@ -424,17 +435,6 @@ class Klein
 
                 $match_result = $matcher->match($this->request, $route);
                 $params = $match_result->getParams();
-
-                if ((int) $path === 404 || (int) $path === 405) {
-                    // Warn user of deprecation
-                    trigger_error(
-                        'Use of 404/405 "routes" is deprecated. Use $klein->onHttpError() instead.',
-                        E_USER_DEPRECATED
-                    );
-
-                    // TODO: Remove in future version, here for backwards compatibility
-                    $this->onHttpError($route);
-                }
 
                 if ($match_result->isPathMatch()) {
                     if ($match_result->isMethodMatch()) {
